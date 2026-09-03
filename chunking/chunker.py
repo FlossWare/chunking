@@ -9,17 +9,11 @@ from typing import Any
 from .types import Chunk
 
 _CHARS_PER_TOKEN = 4
-_SPLIT_RE = re.compile(r"(?<=\. )|\n")
+_BOUNDARY_RE = re.compile(r".*?(?:\. |\n|$)", re.DOTALL)
 
 
 class TokenChunker:
-    """Split text into overlapping, approximately token-bounded chunks.
-
-    The algorithm is intentionally dependency-free. It preserves the source
-    text and uses character offsets, while token counts are estimated at four
-    characters per token. This mirrors the lightweight behavior formerly used
-    by the RAG implementation.
-    """
+    """Split text into overlapping, approximately token-bounded chunks."""
 
     def chunk(
         self,
@@ -70,7 +64,7 @@ class TokenChunker:
                 old_segments = current_segments
                 flush()
                 if overlap_chars:
-                    tail = []
+                    tail: list[tuple[int, int]] = []
                     total = 0
                     for seg_start, seg_end in reversed(old_segments):
                         seg_len = seg_end - seg_start
@@ -115,12 +109,17 @@ class TokenChunker:
 
     @staticmethod
     def _split_sentences(text: str) -> list[tuple[int, int]]:
-        parts = _SPLIT_RE.split(text)
         ranges: list[tuple[int, int]] = []
         offset = 0
-        for part in parts:
-            end = offset + len(part)
-            if part:
+        for match in _BOUNDARY_RE.finditer(text):
+            if match.start() != offset:
+                continue
+            end = match.end()
+            if end > offset:
                 ranges.append((offset, end))
             offset = end
+            if offset >= len(text):
+                break
+        if offset < len(text):
+            ranges.append((offset, len(text)))
         return ranges
