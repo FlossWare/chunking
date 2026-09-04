@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
-import uuid
 from typing import Any
 
 from .types import Chunk
 
 _CHARS_PER_TOKEN = 4
-_BOUNDARY_RE = re.compile(r".*?(?:\. |\n|$)", re.DOTALL)
+_BOUNDARY_RE = re.compile(r".*?(?:(?:[.!?](?=\s|$))|\n|$)", re.DOTALL)
 
 
 class TokenChunker:
@@ -34,7 +34,7 @@ class TokenChunker:
         if overlap >= max_tokens:
             raise ValueError("overlap must be smaller than max_tokens")
 
-        document_id = document_id or str(uuid.uuid4())
+        document_id = document_id or hashlib.sha256(content.encode("utf-8")).hexdigest()
         max_chars = max_tokens * _CHARS_PER_TOKEN
         overlap_chars = overlap * _CHARS_PER_TOKEN
         segments = self._split_sentences(content)
@@ -56,7 +56,8 @@ class TokenChunker:
             length = end - start
             if length > max_chars:
                 flush()
-                for pos in range(start, end, max_chars):
+                stride = max_chars - overlap_chars
+                for pos in range(start, end, stride):
                     ranges.append((pos, min(pos + max_chars, end)))
                 continue
 
