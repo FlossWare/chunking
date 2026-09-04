@@ -44,7 +44,7 @@ def test_unicode_offsets_and_metadata_are_preserved():
     metadata = {"uri": "file://exports/papers/example.pdf", "media_type": "application/pdf"}
     provenance = {"source": "scraping", "content_hash": "abc123"}
     chunks = TokenChunker().chunk(
-        text, document_id="doc", max_tokens=20, metadata=metadata, provenance=provenance
+        text, document_id="doc", max_tokens=20, overlap=1, metadata=metadata, provenance=provenance
     )
     assert chunks[0].content == text
     assert chunks[0].start_offset == 0
