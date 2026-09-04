@@ -31,12 +31,22 @@ def test_long_segment_uses_requested_overlap():
     for previous, current in zip(chunks, chunks[1:]):
         assert previous.end_offset - current.start_offset == 8
         assert current.start_offset < current.end_offset
+        assert current.token_count <= 10
 
 
 def test_sentence_boundaries_include_question_and_exclamation():
     text = "First? Second! Third."
     ranges = TokenChunker._split_sentences(text)
     assert [text[start:end] for start, end in ranges] == ["First?", " Second!", " Third."]
+
+
+def test_sentence_packing_never_exceeds_max_tokens():
+    text = "A" * 15 + "." + " B" * 8 + "." + " C" * 14 + "."
+    chunks = TokenChunker().chunk(text, document_id="bounded", max_tokens=10, overlap=5)
+    assert len(chunks) >= 2
+    for chunk in chunks:
+        assert chunk.token_count <= 10
+        assert text[chunk.start_offset : chunk.end_offset] == chunk.content
 
 
 def test_unicode_offsets_and_metadata_are_preserved():
@@ -51,6 +61,7 @@ def test_unicode_offsets_and_metadata_are_preserved():
     assert chunks[0].end_offset == len(text)
     assert chunks[0].metadata == metadata
     assert chunks[0].provenance == provenance
+    assert text[chunks[0].start_offset : chunks[0].end_offset] == chunks[0].content
 
 
 def test_invalid_configuration_is_rejected():
