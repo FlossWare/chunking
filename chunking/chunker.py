@@ -57,8 +57,13 @@ class TokenChunker:
             if length > max_chars:
                 flush()
                 stride = max_chars - overlap_chars
-                for pos in range(start, end, stride):
-                    ranges.append((pos, min(pos + max_chars, end)))
+                pos = start
+                while pos < end:
+                    chunk_end = min(pos + max_chars, end)
+                    ranges.append((pos, chunk_end))
+                    if chunk_end >= end:
+                        break
+                    pos += stride
                 continue
 
             if current_start is not None and current_end - current_start + length > max_chars:
