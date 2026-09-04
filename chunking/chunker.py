@@ -1,4 +1,4 @@
-"""Sentence-aware token-bounded chunking."""
+"""Sentence-aware, approximately token-bounded chunking with whole-sentence overlap."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ _BOUNDARY_RE = re.compile(r".*?(?:(?:[.!?](?=\s|$))|\n|$)", re.DOTALL)
 
 
 class TokenChunker:
-    """Split text into overlapping, approximately token-bounded chunks."""
+    """Split text into approximately token-bounded chunks with sentence overlap."""
 
     def chunk(
         self,
@@ -86,10 +86,12 @@ class TokenChunker:
 
                 # Whole-sentence overlap must never make the next chunk exceed
                 # the configured bound. If the tail does not leave room for the
-                # incoming sentence, keep the tail as its own chunk and start
-                # the new chunk with the incoming sentence.
+                # incoming sentence, sacrifice overlap at this boundary rather
+                # than emitting a redundant tail-only chunk.
                 if current_start is not None and current_end - current_start + length > max_chars:
-                    flush()
+                    current_start = None
+                    current_end = 0
+                    current_segments = []
 
             if current_start is None:
                 current_start = start
