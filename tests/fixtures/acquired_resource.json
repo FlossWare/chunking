@@ -1,0 +1,9 @@
+{
+  "uri": "file://exports/papers/example.pdf",
+  "media_type": "application/pdf",
+  "content_hash": "sha256:example",
+  "raw_path": "/exports/raw/example.pdf",
+  "size": 12345,
+  "retrieved_at": "2026-09-04T00:00:00+00:00",
+  "discovered_by": "explicit"
+}

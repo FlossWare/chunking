@@ -1,19 +1,19 @@
-"""Sentence-aware token-bounded chunking."""
+"""Sentence-aware, approximately token-bounded chunking with whole-sentence overlap."""
 
 from __future__ import annotations
 
+import hashlib
 import re
-import uuid
 from typing import Any
 
 from .types import Chunk
 
 _CHARS_PER_TOKEN = 4
-_BOUNDARY_RE = re.compile(r".*?(?:\. |\n|$)", re.DOTALL)
+_BOUNDARY_RE = re.compile(r".*?(?:(?:[.!?](?=\s|$))|\n|$)", re.DOTALL)
 
 
 class TokenChunker:
-    """Split text into overlapping, approximately token-bounded chunks."""
+    """Split text into approximately token-bounded chunks with sentence overlap."""
 
     def chunk(
         self,
@@ -34,7 +34,7 @@ class TokenChunker:
         if overlap >= max_tokens:
             raise ValueError("overlap must be smaller than max_tokens")
 
-        document_id = document_id or str(uuid.uuid4())
+        document_id = document_id or hashlib.sha256(content.encode("utf-8")).hexdigest()
         max_chars = max_tokens * _CHARS_PER_TOKEN
         overlap_chars = overlap * _CHARS_PER_TOKEN
         segments = self._split_sentences(content)
@@ -56,8 +56,14 @@ class TokenChunker:
             length = end - start
             if length > max_chars:
                 flush()
-                for pos in range(start, end, max_chars):
-                    ranges.append((pos, min(pos + max_chars, end)))
+                stride = max_chars - overlap_chars
+                pos = start
+                while pos < end:
+                    chunk_end = min(pos + max_chars, end)
+                    ranges.append((pos, chunk_end))
+                    if chunk_end >= end:
+                        break
+                    pos += stride
                 continue
 
             if current_start is not None and current_end - current_start + length > max_chars:
@@ -77,6 +83,15 @@ class TokenChunker:
                         current_start = tail[0][0]
                         current_end = tail[-1][1]
                         current_segments = tail
+
+                # Whole-sentence overlap must never make the next chunk exceed
+                # the configured bound. If the tail does not leave room for the
+                # incoming sentence, sacrifice overlap at this boundary rather
+                # than emitting a redundant tail-only chunk.
+                if current_start is not None and current_end - current_start + length > max_chars:
+                    current_start = None
+                    current_end = 0
+                    current_segments = []
 
             if current_start is None:
                 current_start = start
