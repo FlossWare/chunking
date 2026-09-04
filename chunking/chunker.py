@@ -84,6 +84,13 @@ class TokenChunker:
                         current_end = tail[-1][1]
                         current_segments = tail
 
+                # Whole-sentence overlap must never make the next chunk exceed
+                # the configured bound. If the tail does not leave room for the
+                # incoming sentence, keep the tail as its own chunk and start
+                # the new chunk with the incoming sentence.
+                if current_start is not None and current_end - current_start + length > max_chars:
+                    flush()
+
             if current_start is None:
                 current_start = start
             current_end = end
