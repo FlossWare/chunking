@@ -16,6 +16,43 @@ def test_chunk_has_contract_and_offsets():
     assert chunks[0].id == "doc-1:0"
 
 
+def test_automatic_document_id_is_deterministic():
+    text = "Deterministic Unicode: café 東京."
+    first = TokenChunker().chunk(text, max_tokens=4, overlap=1)
+    second = TokenChunker().chunk(text, max_tokens=4, overlap=1)
+    assert first == second
+    assert first[0].document_id
+
+
+def test_long_segment_uses_requested_overlap():
+    text = "x" * 100
+    chunks = TokenChunker().chunk(text, document_id="long", max_tokens=10, overlap=2)
+    assert len(chunks) > 1
+    for previous, current in zip(chunks, chunks[1:]):
+        assert previous.end_offset - current.start_offset == 8
+        assert current.start_offset < current.end_offset
+
+
+def test_sentence_boundaries_include_question_and_exclamation():
+    text = "First? Second! Third."
+    ranges = TokenChunker._split_sentences(text)
+    assert [text[start:end] for start, end in ranges] == ["First?", " Second!", " Third."]
+
+
+def test_unicode_offsets_and_metadata_are_preserved():
+    text = "Unicode café 東京. Next line."
+    metadata = {"uri": "file://exports/papers/example.pdf", "media_type": "application/pdf"}
+    provenance = {"source": "scraping", "content_hash": "abc123"}
+    chunks = TokenChunker().chunk(
+        text, document_id="doc", max_tokens=20, metadata=metadata, provenance=provenance
+    )
+    assert chunks[0].content == text
+    assert chunks[0].start_offset == 0
+    assert chunks[0].end_offset == len(text)
+    assert chunks[0].metadata == metadata
+    assert chunks[0].provenance == provenance
+
+
 def test_invalid_configuration_is_rejected():
     chunker = TokenChunker()
     for kwargs in ({"max_tokens": 0}, {"max_tokens": 10, "overlap": -1}, {"max_tokens": 10, "overlap": 10}):
